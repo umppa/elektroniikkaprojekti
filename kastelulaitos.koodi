@@ -52,7 +52,7 @@ int minuutit = 21;
 int tunnit = 9;
 int paivat = 0;
 int menuPage = 0;
-int maxMenuPages = 3;
+int maxMenuPages = 1.5;
 int cursorPosition = 0;
 int readKey;
 int savedDistance = 0;
@@ -96,7 +96,6 @@ void setup() {
 
 	MsTimer2::set(1000, sekunti);           //keskeytyspalvelin
 	MsTimer2::start();
-
 	lcd.begin(16, 2);                       //näytön alustus
 
 	lcd.createChar(0, menuCursor);
