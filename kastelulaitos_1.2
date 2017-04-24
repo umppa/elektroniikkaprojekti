@@ -1,0 +1,341 @@
+
+#include <LiquidCrystal.h>                 //näytön kirjasto
+#include <MsTimer2.h>                      //keskeytyspalvelimen kirjasto
+String valikot[] = { "KELLO", "PUMPUT", "ANTURIT" };
+
+
+#define trigPin 13
+#define echoPin 12
+#define kirkkaus 10
+#define ONE_WIRE_BUS 3
+
+
+
+byte downArrow[8] = {
+	0b00100, //   *
+	0b00100, //   *
+	0b00100, //   *
+	0b00100, //   *
+	0b00100, //   *
+	0b10101, // * * *
+	0b01110, //  ***
+	0b00100  //   *
+};
+
+byte upArrow[8] = {
+	0b00100, //   *
+	0b01110, //  ***
+	0b10101, // * * *
+	0b00100, //   *
+	0b00100, //   *
+	0b00100, //   *
+	0b00100, //   *
+	0b00100  //   *
+};
+
+byte menuCursor[8] = {
+	B01000, //  *
+	B00100, //   *
+	B00010, //    *
+	B00001, //     *
+	B00010, //    *
+	B00100, //   *
+	B01000, //  *
+	B00000  //
+};
+
+int lcd_key = 0;
+int sekunnit = 0;
+int minuutit = 21;
+int tunnit = 9;
+int paivat = 0;
+int menuPage = 0;
+int maxMenuPages = 1.5;
+int cursorPosition = 0;
+int readKey;
+int savedDistance = 0;
+
+
+
+
+LiquidCrystal lcd(8, 9, 4, 5, 6, 7);      //alustaa lcd-näytön pinnit
+
+void sekunti()                            //keskeytyspalvelimen funktio, joka lisää sekuntteja kelloon 
+{
+	sekunnit = sekunnit + 1;
+	aika();
+}
+
+void aika() {                             //muuntaa sekunnit minuuteiksi ja tunneiksi
+	if (sekunnit == 60)
+	{
+		sekunnit = 0;
+		minuutit = minuutit + 1;
+	}
+	if (minuutit == 60)
+	{
+		minuutit = 0;
+		tunnit = tunnit + 1;
+	}
+	if (tunnit == 24)
+	{
+		tunnit = 0;
+		paivat++;
+	}
+	if (paivat == 7)
+	{
+		paivat = 0;
+	}
+}
+
+void setup() {
+	Serial.begin(9600);
+	
+
+	MsTimer2::set(1000, sekunti);           //keskeytyspalvelin
+	MsTimer2::start();
+	lcd.begin(16, 2);                       //näytön alustus
+
+	lcd.createChar(0, menuCursor);
+	lcd.createChar(1, upArrow);
+	lcd.createChar(2, downArrow);
+
+	
+}
+void loop()
+{
+	mainMenuDraw();
+	drawCursor();
+	operateMainMenu();
+	
+}
+
+void mainMenuDraw() {
+	Serial.print(menuPage);
+	lcd.clear();
+	lcd.setCursor(1, 0);
+	lcd.print(valikot[menuPage]);
+	lcd.setCursor(1, 1);
+	lcd.print(valikot[menuPage + 1]);
+	if (menuPage == 0) {
+		lcd.setCursor(15, 1);
+		lcd.write(byte(2));
+	}
+	else if (menuPage > 0 and menuPage < maxMenuPages) {
+		lcd.setCursor(15, 1);
+		lcd.write(byte(2));
+		lcd.setCursor(15, 0);
+		lcd.write(byte(1));
+	}
+	else if (menuPage == maxMenuPages) {
+		lcd.setCursor(15, 0);
+		lcd.write(byte(1));
+	}
+}
+void drawCursor() {
+	for (int x = 0; x < 2; x++) {     // Erases current cursor
+		lcd.setCursor(0, x);
+		lcd.print(" ");
+	}
+	if (menuPage % 2 == 0) {
+		if (cursorPosition % 2 == 0) {  // If the menu page is even and the cursor position is even that means the cursor should be on line 1
+			lcd.setCursor(0, 0);
+			lcd.write(byte(0));
+		}
+		if (cursorPosition % 2 != 0) {  // If the menu page is even and the cursor position is odd that means the cursor should be on line 2
+			lcd.setCursor(0, 1);
+			lcd.write(byte(0));
+		}
+	}
+	if (menuPage % 2 != 0) {
+		if (cursorPosition % 2 == 0) {  // If the menu page is odd and the cursor position is even that means the cursor should be on line 2
+			lcd.setCursor(0, 1);
+			lcd.write(byte(0));
+		}
+		if (cursorPosition % 2 != 0) {  // If the menu page is odd and the cursor position is odd that means the cursor should be on line 1
+			lcd.setCursor(0, 0);
+			lcd.write(byte(0));
+		}
+	}
+}
+void operateMainMenu() {
+	lcd_key = 0;
+	int activeButton = 0;
+	while (activeButton == 0) {
+		int button;
+		readKey = analogRead(0);
+		if (readKey < 790) {
+			delay(100);
+			readKey = analogRead(0);
+		}
+		button = evaluateButton(readKey);
+
+		switch (button)
+		{
+
+		case 0:
+		{
+
+			break;
+		}
+
+		case 1:
+		{
+			switch (cursorPosition) {
+			case 0:
+				menuItem1();
+				break;
+			case 1:
+				menuItem2();
+				break;
+			case 2:
+				menuItem3();
+
+			}
+			activeButton = 1;
+			mainMenuDraw();
+			drawCursor();
+			break;
+		}
+
+		case 2:
+		{
+			button = 0;
+			if (menuPage == 0) {
+				cursorPosition = cursorPosition - 1;
+				cursorPosition = constrain(cursorPosition, 0, ((sizeof(valikot) / sizeof(String)) - 1));
+			}
+			if (menuPage % 2 == 0 and cursorPosition % 2 == 0) {
+				menuPage = menuPage - 1;
+				menuPage = constrain(menuPage, 0, maxMenuPages);
+			}
+
+			if (menuPage % 2 != 0 and cursorPosition % 2 != 0) {
+				menuPage = menuPage - 1;
+				menuPage = constrain(menuPage, 0, maxMenuPages);
+			}
+
+			cursorPosition = cursorPosition - 1;
+			cursorPosition = constrain(cursorPosition, 0, ((sizeof(valikot) / sizeof(String)) - 1));
+
+			mainMenuDraw();
+			drawCursor();
+			activeButton = 1;
+
+			break;
+		}
+
+		case 3:
+		{
+			button = 0;
+			if (menuPage % 2 == 0 and cursorPosition % 2 != 0) {
+				menuPage = menuPage + 1;
+				menuPage = constrain(menuPage, 0, maxMenuPages);
+			}
+
+			if (menuPage % 2 != 0 and cursorPosition % 2 == 0) {
+				menuPage = menuPage + 1;
+				menuPage = constrain(menuPage, 0, maxMenuPages);
+			}
+
+			cursorPosition = cursorPosition + 1;
+			cursorPosition = constrain(cursorPosition, 0, ((sizeof(valikot) / sizeof(String)) - 1));
+			mainMenuDraw();
+			drawCursor();
+			activeButton = 1;
+
+			break;
+		}
+
+
+		}
+
+	}
+}
+int evaluateButton(int x) {
+	int result = 0;
+	if (x < 50) {
+		result = 1; // right
+	}
+	else if (x < 195) {
+		result = 2; // up
+	}
+	else if (x < 380) {
+		result = 3; // down
+	}
+	else if (x < 790) {
+		result = 4; // left
+	}
+	return result;
+}
+void menuItem1() { 
+	int activeButton = 0;
+
+	lcd.clear();
+	lcd.setCursor(0, 0);
+	lcd.print("AJAN VALINTA");
+
+	while (activeButton == 0) {
+		int button;
+		readKey = analogRead(0);
+		if (readKey < 790) {
+			delay(100);
+			readKey = analogRead(0);
+		}
+		button = evaluateButton(readKey);
+		switch (button) {
+		case 4: 
+			button = 0;
+			activeButton = 1;
+			break;
+		}
+	}
+}
+
+void menuItem2() { 
+	int activeButton = 0;
+
+	lcd.clear();
+	lcd.setCursor(0, 0);
+	lcd.print("PUMPPUJEN AJASTUS");
+
+	while (activeButton == 0) {
+		int button;
+		readKey = analogRead(0);
+		if (readKey < 790) {
+			delay(100);
+			readKey = analogRead(0);
+		}
+		button = evaluateButton(readKey);
+		switch (button) {
+		case 4: 
+			button = 0;
+			activeButton = 1;
+			break;
+		}
+	}
+}
+
+void menuItem3() { 
+	int activeButton = 0;
+
+	lcd.clear();
+	lcd.setCursor(0, 0);
+	lcd.print("LUKEMAT");
+
+	while (activeButton == 0) {
+		int button;
+		readKey = analogRead(0);
+		if (readKey < 790) {
+			delay(100);
+			readKey = analogRead(0);
+		}
+		button = evaluateButton(readKey);
+		switch (button) {
+		case 4:  
+			button = 0;
+			activeButton = 1;
+			break;
+		}
+	}
+}
