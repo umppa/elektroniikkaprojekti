@@ -3,13 +3,16 @@
 
 #include <LiquidCrystal.h>                 //näytön kirjasto
 #include <MsTimer2.h>                      //keskeytyspalvelimen kirjasto
-String valikot[] = { "KELLO", "PUMPUT", "AJASTIN" };
+String valikot[] = { "KELLO", "PUMPUT", "ANTURIT" };
+String p_maara[] = { "MA", "TI", "KE", "TO", "PE", "LA", "SU", "XX" };
+String p_flag[] = { "ON", "OFF" };
 
 
 #define trigPin 13
 #define echoPin 12
 #define kirkkaus 10
-#define ONE_WIRE_BUS 3
+#define paluu
+
 
 
 
@@ -46,17 +49,35 @@ byte menuCursor[8] = {
 	B00000  //
 };
 
+byte up[8] = {
+	0b00100, //   *
+	0b01110, //  ***
+	0b10001, // *   *
+	0b00000, //  
+	0b00000, //   
+	0b00000, //   
+	0b00000, //   
+	0b00000  //   
+};
+
 int lcd_key = 0;
 int sekunnit = 0;
 int minuutit = 21;
 int tunnit = 9;
 int paivat = 0;
+int sekunnit1 = 0;
+int minuutit1 = 0;
+int tunnit1 = 0;
+int paivat1 = 0;
 int menuPage = 0;
 int maxMenuPages = 1.5;
 int cursorPosition = 0;
 int readKey;
 int savedDistance = 0;
-
+int button;
+int e = 0;
+int f = 0;
+int flag = 1;
 
 
 
@@ -69,30 +90,409 @@ void sekunti()                            //keskeytyspalvelimen funktio, joka li
 }
 
 void aika() {                             //muuntaa sekunnit minuuteiksi ja tunneiksi
-	if (sekunnit == 60)
+	if (sekunnit >= 60)
 	{
 		sekunnit = 0;
 		minuutit = minuutit + 1;
 	}
-	if (minuutit == 60)
+	if (minuutit >= 60)
 	{
 		minuutit = 0;
 		tunnit = tunnit + 1;
 	}
-	if (tunnit == 24)
+	if (tunnit >= 24)
 	{
 		tunnit = 0;
 		paivat++;
 	}
-	if (paivat == 7)
+	if (paivat > 6)
 	{
 		paivat = 0;
 	}
 }
 
+void kello()
+{
+	lcd.clear();
+	lcd.setCursor(0, 0);
+	lcd.print(p_maara[paivat]);
+	lcd.print(" ");
+	if (tunnit < 10)
+	{
+		lcd.setCursor(3, 0);
+		lcd.print("0");
+		lcd.print(tunnit);
+	}
+	if (tunnit >= 10)
+	{
+		lcd.setCursor(3, 0);
+		lcd.print(tunnit);
+	}
+	if (tunnit < 0) tunnit = 0;
+
+	if (tunnit >= 24) tunnit = 24;
+
+	lcd.print(":");
+	if (minuutit < 10)
+	{
+		lcd.setCursor(6, 0);
+		lcd.print("0");
+		lcd.print(minuutit);
+	}
+	if (minuutit >= 10)
+	{
+		lcd.setCursor(6, 0);
+		lcd.print(minuutit);
+		//lcd.print(":");
+	}
+}
+
+void nuoli()
+{
+	Serial.println(paivat);
+	Serial.println(tunnit);
+	Serial.println(minuutit);
+	Serial.print("\n");
+	int activeButton = 0;
+	lcd.setCursor(0, 1);
+	lcd.write(byte(3));
+	delay(200);
+
+	while (activeButton == 0)
+	{
+
+		Serial.print("1");
+		readKey = analogRead(0);
+		button = evaluateButton(readKey);
+
+
+		if (button == 1) {
+			lcd.setCursor(0, 1);
+			lcd.print("                ");
+			e = e + 3;
+			delay(200);
+			if (e > 6) {
+				e = 0;
+			}
+			lcd.setCursor(e, 1);
+			lcd.write(byte(3));
+
+		}
+		if (button == 5) {
+			lcd.setCursor(0, 1);
+			lcd.print("                ");
+			delay(500);
+			return;
+		}
+		if (button == 2) {
+			if (e == 0) {
+				paivat++;
+				delay(300);
+				lcd.setCursor(0, 0);
+				lcd.print("  ");
+				lcd.setCursor(0, 0);
+				if (paivat > 6)paivat = 0;
+				lcd.print(p_maara[paivat]);
+
+			}
+			if (e == 3) {
+				tunnit++;
+				delay(300);
+				if (tunnit >= 24)tunnit = 0;
+				if (tunnit<10)
+				{
+					lcd.setCursor(3, 0);
+					lcd.print("0");
+					lcd.print(tunnit);
+				}
+				else
+				{
+					lcd.setCursor(3, 0);
+					lcd.print("  ");
+					lcd.setCursor(3, 0);
+					lcd.print(tunnit);
+				}
+
+			}
+			if (e == 6) {
+				minuutit++;
+				delay(300);
+				if (minuutit >= 60)minuutit = 0;
+				if (minuutit<10)
+				{
+					lcd.setCursor(6, 0);
+					lcd.print("0");
+					lcd.print(minuutit);
+				}
+				else
+				{
+					lcd.setCursor(6, 0);
+					lcd.print("  ");
+					lcd.setCursor(6, 0);
+					lcd.print(minuutit);
+				}
+			}
+
+
+
+		}
+
+		
+		if (button == 3) {
+			if (e == 0) {
+				paivat--;
+				delay(300);
+				lcd.setCursor(0, 0);
+				lcd.print("  ");
+				lcd.setCursor(0, 0);
+				if (paivat < 0)paivat = 6;
+				lcd.print(p_maara[paivat]);
+			}
+
+			if (e == 3) {
+				tunnit--;
+				delay(300);
+				if (tunnit < 0)tunnit = 23;
+				if (tunnit<10)
+				{
+					lcd.setCursor(3, 0);
+					lcd.print("0");
+					lcd.print(tunnit);
+				}
+				else
+				{
+					lcd.setCursor(3, 0);
+					lcd.print("  ");
+					lcd.setCursor(3, 0);
+					lcd.print(tunnit);
+				}
+			}
+
+			if (e == 6) {
+				minuutit--;
+				delay(300);
+				if (minuutit < 0)minuutit = 59;
+				if (minuutit<10)
+				{
+					lcd.setCursor(6, 0);
+					lcd.print("0");
+					lcd.print(minuutit);
+				}
+				else
+				{
+					lcd.setCursor(6, 0);
+					lcd.print("  ");
+					lcd.setCursor(6, 0);
+					if (minuutit < 0)minuutit = 59;
+					lcd.print(minuutit);
+				}
+			}
+		}
+	}
+}
+void kello2()
+{
+	lcd.clear();
+	lcd.setCursor(0, 0);
+	lcd.print(p_maara[paivat1]);
+	lcd.print(" ");
+	if (tunnit1 < 10)
+	{
+		lcd.setCursor(3, 0);
+		lcd.print("0");
+		lcd.print(tunnit1);
+	}
+	if (tunnit1 >= 10)
+	{
+		lcd.setCursor(3, 0);
+		lcd.print(tunnit1);
+	}
+	if (tunnit1< 0) tunnit1 = 0;
+
+	if (tunnit1 >= 24) tunnit1 = 24;
+
+	lcd.print(":");
+	if (minuutit1 < 10)
+	{
+		lcd.setCursor(6, 0);
+		lcd.print("0");
+		lcd.print(minuutit1);
+	}
+	if (minuutit1 >= 10)
+	{
+		lcd.setCursor(6, 0);
+		lcd.print(minuutit1);
+		//lcd.print(":");
+	}
+}
+void pump_on() {
+
+	if (tunnit == tunnit1 && minuutit == minuutit1 && paivat1 == 7 && flag == 0) {
+
+		digitalWrite(2, HIGH);
+		lcd.setCursor(11, 1);
+		delay(2000);
+		digitalWrite(2, LOW);
+		flag = 1;
+	}
+	
+	if (tunnit == tunnit1 && minuutit == minuutit1 && paivat == paivat1 && flag == 0) {
+		
+		digitalWrite(2, HIGH);
+		lcd.setCursor(11, 1);
+		delay(2000);
+		digitalWrite(2, LOW);
+		flag = 1;
+	}
+}
+
+void pumppu()
+{
+	Serial.print(paivat1);
+	Serial.print(tunnit1);
+	Serial.print(minuutit1);
+	Serial.print("\n");
+	int activeButton = 0;
+	lcd.setCursor(0, 1);
+	lcd.write(byte(3));
+	delay(200);
+
+	while (activeButton == 0)
+	{
+
+		Serial.print("1");
+		readKey = analogRead(0);
+		button = evaluateButton(readKey);
+
+
+		if (button == 1) {
+			lcd.setCursor(0, 1);
+			lcd.print("                ");
+			f = f + 3;
+			delay(200);
+			if (f > 6) {
+				f = 0;
+			}
+			lcd.setCursor(f, 1);
+			lcd.write(byte(3));
+
+		}
+		if (button == 5) {
+			lcd.setCursor(0, 1);
+			lcd.print("                ");
+			delay(500);
+			return;
+		}
+		if (button == 2) {
+			if (f == 0) {
+				paivat1++;
+				delay(500);
+				lcd.setCursor(0, 0);
+				lcd.print("  ");
+				lcd.setCursor(0, 0);
+				if (paivat1 > 7)paivat1 = 0;
+				lcd.print(p_maara[paivat1]);
+
+			}
+			if (f == 3) {
+				tunnit1++;
+				delay(300);
+				if (tunnit1 >= 24)tunnit1 = 0;
+				if (tunnit1<10)
+				{
+					lcd.setCursor(3, 0);
+					lcd.print("0");
+					lcd.print(tunnit1);
+				}
+				else
+				{
+					lcd.setCursor(3, 0);
+					lcd.print("  ");
+					lcd.setCursor(3, 0);
+					lcd.print(tunnit1);
+				}
+
+
+			}
+			if (f == 6) {
+				minuutit1++;
+				delay(300);
+				if (minuutit1 >= 60)minuutit1 = 0;
+				if (minuutit1<10)
+				{
+					lcd.setCursor(6, 0);
+					lcd.print("0");
+					lcd.print(minuutit1);
+				}
+				else
+				{
+					lcd.setCursor(6, 0);
+					lcd.print("  ");
+					lcd.setCursor(6, 0);
+					lcd.print(minuutit1);
+				}
+			}
+
+
+
+		}
+		if (button == 3) {
+			if (f == 0) {
+				paivat1--;
+				delay(300);
+				if (paivat1 < 0)paivat1 = 7;
+				lcd.setCursor(0, 0);
+				lcd.print("  ");
+				lcd.setCursor(0, 0);
+
+				lcd.print(p_maara[paivat1]);
+			}
+
+			if (f == 3) {
+				tunnit1--;
+				delay(300);
+				if (tunnit1 < 0)tunnit1 = 23;
+				if (tunnit1<10)
+				{
+					lcd.setCursor(3, 0);
+					lcd.print("0");
+					lcd.print(tunnit1);
+				}
+				else
+				{
+					lcd.setCursor(3, 0);
+					lcd.print("  ");
+					lcd.setCursor(3, 0);
+					lcd.print(tunnit1);
+				}
+			}
+
+			if (f == 6) {
+				minuutit1--;
+				delay(300);
+				if (minuutit1 < 0)minuutit1 = 59;
+				if (minuutit1<10)
+				{
+					lcd.setCursor(6, 0);
+					lcd.print("0");
+					lcd.print(minuutit1);
+				}
+				else
+				{
+					lcd.setCursor(6, 0);
+					lcd.print("  ");
+					lcd.setCursor(6, 0);
+					lcd.print(minuutit1);
+				}
+			}
+		}
+	}
+}
+
+
 void setup() {
 	Serial.begin(9600);
-	
+
 
 	MsTimer2::set(1000, sekunti);           //keskeytyspalvelin
 	MsTimer2::start();
@@ -101,8 +501,8 @@ void setup() {
 	lcd.createChar(0, menuCursor);
 	lcd.createChar(1, upArrow);
 	lcd.createChar(2, downArrow);
-
-	
+	lcd.createChar(3, up);
+	pinMode(2, OUTPUT);
 }
 void loop()
 {
@@ -110,6 +510,7 @@ void loop()
 	drawCursor();
 	operateMainMenu();
 	
+
 }
 
 void mainMenuDraw() {
@@ -164,7 +565,7 @@ void operateMainMenu() {
 	lcd_key = 0;
 	int activeButton = 0;
 	while (activeButton == 0) {
-		int button;
+
 		readKey = analogRead(0);
 		if (readKey < 790) {
 			delay(100);
@@ -177,14 +578,27 @@ void operateMainMenu() {
 
 		case 0:
 		{
-
+			pump_on();
 			break;
 		}
 
 		case 1:
 		{
+			switch (cursorPosition) {
+			case 0:
+				menuItem1();
+				break;
+			case 1:
+				menuItem2();
+				break;
+			case 2:
+				menuItem3();
 
-
+			}
+			activeButton = 1;
+			mainMenuDraw();
+			drawCursor();
+			break;
 		}
 
 		case 2:
@@ -252,8 +666,122 @@ int evaluateButton(int x) {
 	else if (x < 380) {
 		result = 3; // down
 	}
-	else if (x < 790) {
+	else if (x < 550) {
 		result = 4; // left
 	}
+	else if (x < 790) {
+		result = 5; // select
+	}
 	return result;
+}
+
+
+void menuItem1() {
+	int activeButton = 0;
+
+	lcd.clear();
+	lcd.setCursor(0, 0);
+	lcd.print("AJAN VALINTA");
+	delay(1000);
+
+	kello();
+
+	while (activeButton == 0) {
+		int button;
+		readKey = analogRead(0);
+		if (readKey < 790) {
+			delay(100);
+			readKey = analogRead(0);
+		}
+
+		button = evaluateButton(readKey);
+		switch (button) {
+		case 4:
+			button = 0;
+			activeButton = 1;
+			break;
+		case 5:
+			nuoli();
+			break;
+		}
+	}
+}
+
+void menuItem2() {
+	int activeButton = 0;
+
+	lcd.clear();
+	lcd.setCursor(0, 0);
+	lcd.print("PUMPPUJEN AJASTUS");
+	delay(1000);
+	lcd.clear();
+	lcd.setCursor(0, 0);
+	lcd.write(byte(0));
+	kello2();
+	lcd.setCursor(13, 0);
+	lcd.print("   ");
+	lcd.setCursor(13, 0);
+	lcd.print(p_flag[flag]);
+	while (activeButton == 0) {
+		int button;
+		readKey = analogRead(0);
+		
+		
+		if (readKey < 790) {
+			delay(100);
+			readKey = analogRead(0);
+		}
+		button = evaluateButton(readKey);
+		switch (button) {
+		
+		case 2:
+				lcd.setCursor(13, 0);
+				lcd.print("   ");
+				lcd.setCursor(13, 0);
+				lcd.print(p_flag[flag]);
+				flag = 0;
+		
+			break;
+		case 3:
+			
+				lcd.setCursor(13, 0);
+				lcd.print("   ");
+				lcd.setCursor(13, 0);
+				lcd.print(p_flag[flag]);
+				flag = 1;
+			
+			break;
+		case 4:
+			button = 0;
+			activeButton = 1;
+			break;
+		case 5:
+			pumppu();
+			break;
+		}
+	}
+}
+
+void menuItem3() {
+	int activeButton = 0;
+
+	lcd.clear();
+	lcd.setCursor(0, 0);
+	lcd.print("LUKEMAT");
+
+	while (activeButton == 0) {
+		int button;
+		readKey = analogRead(0);
+		if (readKey < 790) {
+			delay(100);
+			readKey = analogRead(0);
+		}
+		button = evaluateButton(readKey);
+		switch (button) {
+		case 4:
+			button = 0;
+			activeButton = 1;
+			break;
+		}
+	}
 }
